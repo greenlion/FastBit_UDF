@@ -8,12 +8,12 @@ fi
 if [ ! -e "lib" ]
 then 
 
-  if [ ! -e "fastbit-2.0.1" ]
+  if [ ! -e "fastbit-$FASTBIT_VERSION" ]
   then
-    tar zxovf fastbit-2.0.1.tar.gz || exit 1
+    tar zxovf fastbit-"$FASTBIT_VERSION".tar.gz || exit 1
   fi
 
-  cd fastbit-2.0.1/
+  cd fastbit-"$FASTBIT_VERSION"/
 
   if [ ! -e "Makefile" ]
   then
