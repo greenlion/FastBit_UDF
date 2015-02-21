@@ -1,9 +1,10 @@
 all:
 	sh get_and_build_fastbit.sh
-	gcc -o ibis_udf.so ibis_udf.cpp `mysql_config --cflags` -shared -I include/
+	g++ -shared -Wl,-rpath '-Wl,$$ORIGIN' -L lib/ -I include/ `mysql_config --include` -l fastbit -o fb_udf.so `mysql_config --cxxflags` fb_udf.cpp
 
 install:
 	cp *.so `mysql_config --plugindir`
+	cp lib/*.so* `mysql_config --plugindir`
 
 clean:
-	rm *.o *.so
+	rm *.so
