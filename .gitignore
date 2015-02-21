@@ -1,0 +1,9 @@
+fastbit-2.0.1/
+lib/
+include/
+bin/
+share/
+*.gz
+*.o
+*.so
+*.swp
