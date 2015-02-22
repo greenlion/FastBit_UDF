@@ -1,4 +1,13 @@
 #include "fb_udf.h"
+/*
+THD *current_thd() { return (THD*)pthread_getspecific(THR_THD); }
+bool set_mysql_var(const char* name, const char* m) {
+	THD *thd = current_thd();
+	user_var_entry *entry = get_variable(&thd->user_vars, name, true);
+	if(!entry) return false;	
+	entry->reset_value();
+	entry->store((void*)m, strlen(m), STRING_RESULT);
+}*/
 
 int file_exists (const char * file_name)
 {
@@ -61,26 +70,84 @@ void fb_create_deinit(UDF_INIT *initid) {
 }
 
 my_bool fb_load_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
-	int i;
-	long scale;
-	if(args->arg_count < 2 || args->arg_count > 3 ) {
-		strcpy(message, "This function takes string arguments: index_path, load_file_path, [delimiter]"); 
+	if(args->arg_count < 2 || args->arg_count > 4 ) {
+		strcpy(message, "This function takes the following arguments: index_path, load_file_path, delimiter, [max_rows_in_partition]"); 
 		return 1;
 	}
 
-	for(i=0;i<args->arg_count;i++) {
+	for(int i=0;i<args->arg_count && i<3 ;i++) {
 		if(args->arg_type[i] != STRING_RESULT) {
-			strcpy(message, "This function takes only string arguments: index_path, load_file_path, [delimiter]"); 
+			std::string arg;
+			switch(i) {
+				case 0:
+					arg = "index_path";	
+				break;
+				case 1:
+					arg = "load_file_path";
+				break;
+				case 2:
+					arg = "delimiter";
+				break;
+
+					
+			}
+			arg += " must be a string";
+			strcpy(message, arg.c_str());
 			return 1;
 		} 
+	}
+
+	if(args->arg_count > 2 && args->arg_type[3] != INT_RESULT) {
+		strcpy(message, "max_rows_in_partition must be an integer");
+		return 1;
 	}
 
 	return 0;
 }
 
 long long fb_load(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
-	long long retval;
-	retval = 0;
+	/* Handle arguments */
+        std::string outdir(args->args[0]);
+	std::string csv_path(args->args[1]);
+
+	/* Use custom delimiter?  If not the default is comma "," */
+	std::string del = ",";
+	if(args->arg_count > 1) {
+		del.assign(args->args[2]);
+	}
+
+	/* How many maximum rows in a partition? */
+	long long pmax = 100000000;
+	if(args->arg_count > 2) {
+		pmax =  *(long long*)args->args[3];
+	}
+
+	const char* sel;
+
+	std::unique_ptr<ibis::tablex> ta(ibis::tablex::create());
+	ta->setPartitionMax(pmax);
+	std::string metadatafile(outdir + "/udf_colspec.txt");
+	ta->readNamesAndTypes(metadatafile.c_str());
+	int ierr = ta->readCSV(csv_path.c_str(), 0, outdir.c_str(), del.c_str());
+	if (ierr < 0) {
+		std::string errmsg = " failed to parse file '" + csv_path + "' error from readCSV:" + std::to_string(ierr);
+		return ierr;
+	}
+	std::string part_name = std::to_string(std::time(nullptr));
+	int retval = ierr;
+	ierr = ta->write(outdir.c_str(),part_name.c_str(), "", "", "");
+	if (ierr < 0) {
+		/*std::clog << *argv << " failed to write data in CSV file "
+			<< csvfiles[i] << " to \"" << outdir
+			<< "\", error code = " << ierr << std::endl; */
+		return ierr;
+	}
+	ta->clearData();
+	std::unique_ptr<ibis::table> tbl(ibis::table::create(outdir.c_str()));
+	if (tbl.get() != 0) {
+		tbl->buildIndexes(0);
+        }
+
 	return retval;
 }
 
