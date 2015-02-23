@@ -70,8 +70,10 @@ directories called partitions, which are created automatically when data is load
 * text: Arbitrary string values.
 
 ### Create a table with two integer columns called c2 and c3
-usage: fb_create(data_path, colspec)
-returns: 0 on success, negative on failure
+
+* usage: fb_create(data_path, colspec)
+* returns: 0 on success, negative on failure
+
 ```
 +------------------------------------------+
 | fb_create("/tmp/fbtest","c2:int,c3:int") |
@@ -81,8 +83,10 @@ returns: 0 on success, negative on failure
 ```
 
 ## Loading a CSV file into the table/index
-usage: fb_load(data_path, file_name, [delimiter=,], [max_per_partition=100000000])
-returns: number of rows loaded on success, negative on failure
+
+* usage: fb_load(data_path, file_name, [delimiter=,], [max_per_partition=100000000])
+* returns: number of rows loaded on success, negative on failure
+
 note: an entire column of a partition is loaded into memory.  100M rows the the default maximum number of rows in a partition (remember partitions are automatically maintained) and the default is probably reasonable for most systems.  If FastBit consumes too much memory it will crash, taking MySQL with it, so don't make the per-partition value too large if you have many rows.
 ```
 +------------------------------------------+
@@ -93,26 +97,34 @@ note: an entire column of a partition is loaded into memory.  100M rows the the 
 ```
 
 ## Query the table to get a row count
-usage: fb_query(data_path,output_file,query_string)
-returns: QUERY_OK row_count or ERROR error_message
+
+* usage: fb_query(data_path,output_file,query_string)
+* returns: QUERY_OK row_count or ERROR error_message
 
 Query output is sent to a file which you can load with LOAD DATA INFILE
+
+Note that a list of column names and data types is returned so you can create 
+a table to store the results in.
 ```
-+----------------------------------------------------------+
-| fb_query("/tmp/fbtest","/tmp/out.txt","select count(*)") |
-+----------------------------------------------------------+
-| QUERY_OK 1                                               |
-+----------------------------------------------------------+
++-------------------------------------------------------------------------------------+
+| fb_query("/tmp/fbtest","/tmp/out.txt","select c2, count(*) as cnt, avg(c3) as avg") |
++-------------------------------------------------------------------------------------+
+| QUERY_OK 1 (`c2` INT, `cnt` INT UNSIGNED, `avg` DOUBLE)                             |
++-------------------------------------------------------------------------------------+
+1, 1, 1
 
 cat /tmp/out.txt
 10000000 
 ```
 
 ## Unlink files (be careful!)
-usage: fb_unlink(file_path)
-returns: 0 on success, negative on error
+
+* usage: fb_unlink(file_path)
+* returns: 0 on success, negative on error
+
 The FastBit UDF won't overwrite files, so you have to unlink files you create 
 You also don't want to waste disk space on a bunch of intermediate files you don't need
+
 ```
 +---------------------------+
 | fb_unlink("/tmp/out.txt") |
@@ -123,8 +135,10 @@ You also don't want to waste disk space on a bunch of intermediate files you don
 
 ## Delete rows
 Deletes rows (and zaps them) from the table
-usage: fb_delete(index_path, where_conditions)
-returns: Number of rows deleted on success, negative on failure
+
+* usage: fb_delete(index_path, where_conditions)
+* returns: Number of rows deleted on success, negative on failure
+
 ```
 +-------------------------------------+
 | fb_delete("/tmp/fbtest", "c2 >= 0") |
@@ -134,9 +148,12 @@ returns: Number of rows deleted on success, negative on failure
 ```
 
 ## Insert a row
+
 Inserts a delimited row into the database.  Delimter may consist of more than one character, and each is used as a delimiter.  Multi-character delimiters are not supported.  The default delimter is comma (,).  Note that strings don't have to be quoted by it doesn't hurt to quote them with single quotes.
-usage: fb_insert(index_path, delimted_string)
-returns: 1 on success, negative on failure
+
+* usage: fb_insert(index_path, delimted_string)
+* returns: 1 on success, negative on failure
+
 ```
 +-------------------------------------+
 | fb_insert('/tmp/fbtest', '1|1','|') |
