@@ -81,8 +81,9 @@ returns: 0 on success, negative on failure
 ```
 
 ## Loading a CSV file into the table/index
-usage: fb_load(data_path, file_name, [delimiter=,], [max_per_partition=100000])
+usage: fb_load(data_path, file_name, [delimiter=,], [max_per_partition=100000000])
 returns: number of rows loaded on success, negative on failure
+note: an entire column of a partition is loaded into memory.  100M rows the the default maximum number of rows in a partition (remember partitions are automatically maintained) and the default is probably reasonable for most systems.  If FastBit consumes too much memory it will crash, taking MySQL with it, so don't make the per-partition value too large if you have many rows.
 ```
 +------------------------------------------+
 | fb_load("/tmp/fbtest","/tmp/fbdata.txt") |
