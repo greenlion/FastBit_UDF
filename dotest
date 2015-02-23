@@ -1,4 +1,4 @@
-mysql -uroot -e 'delete from mysql.func' && \
+mysql -uroot -e 'delete from mysql.func where dl = "fb_udf.so"' && \
 sudo service mysqld stop && \
 make && \
 sudo make install && sudo rm -rf /tmp/fbtest && \
