@@ -5,16 +5,15 @@ MySQL UDF for creating, manipulating and querying FastBit indexes
 The query string (used with fb_query) is a FastBit ibis style query string withi the following limitations:  
 
 1. There is no FROM clause required, and one MUST NOT be used
-2. The select clause should be lower case, except for string literals
-3. The C standard math functions are supported (sqrt, pow, etc)
-4. There is no GROUP BY clause.  If aggregate functions are used all non-aggregate functions are grouped by.
-5. Aggregate functions SUM/AVG/COUNT/GROUP_CONCAT/MIN/MAX/VAR/VARP/STDEV/STDEVP are available
-6. If you SUM() an int column, it can overflow.  
+2. The C standard math functions are supported (sqrt, pow, etc)
+3. There is no GROUP BY clause.  If aggregate functions are used all non-aggregate functions are grouped by.
+4. Aggregate functions SUM/AVG/COUNT/GROUP_CONCAT/MIN/MAX/VAR/VARP/STDEV/STDEVP are available
+5. If you SUM() an int column, it can overflow.  
 6. Distinct count is avaialable through the COUNTDISTINCT() function, not COUNT(DISTINCT ...)
-6. The HAVING clause is not supported
-7. ORDER BY and LIMIT clauses are supported, but LIMIT does not support offset
-8. Queries without aggregation and missing a WHERE clause are not supported and will return no results
-9. Using the WHERE clause:
+7. The HAVING clause is not supported
+8. ORDER BY and LIMIT clauses are supported, but LIMIT does not support offset
+9. Queries without aggregation and missing a WHERE clause are not supported and will return no results
+10. Using the WHERE clause:
 
   1. Must be followed by a set of equality or range conditions joined by logical operators 'AND', 'OR', 'XOR', and '!'. 
   2. A range condition can be one-sided as "A = 5" or "B > 10", or two-sided as "10 <= B < 20." 
