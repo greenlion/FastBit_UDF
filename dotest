@@ -1,16 +1,31 @@
 mysql -uroot -e 'delete from mysql.func where dl = "fb_udf.so"' && \
-sudo service mysqld stop && \
 make && \
-sudo make install && sudo rm -rf /tmp/fbtest && \
+sudo service mysqld stop && \
+sudo make install && \
+sudo rm -rf /tmp/fbtest && \
 sudo service mysqld start && \
-mysql -u root -e "create function fb_query returns string soname 'fb_udf.so';" && \
-mysql -u root -e "create function fb_create returns integer soname 'fb_udf.so';" && \
-mysql -u root -e "create function fb_load returns integer soname 'fb_udf.so';" 
+mysql -u root < install.sql
 if [ -f /tmp/out.txt ] 
 then
   sudo rm /tmp/out.txt 
 fi;
+if [ -d /tmp/fbtest ]
+then
+  sudo rm -rf /tmp/fbtest
+fi;
+echo "-- Creating index"
 mysql -u root -e 'select fb_create("/tmp/fbtest","c2:int,c3:int")' && \
+echo "-- Loading index"
 mysql -u root -e 'select fb_load("/tmp/fbtest","/tmp/fbdata.txt")' && \
+echo "-- Count rows"
+mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.txt","select count(*)")' && \
+sudo cat /tmp/out.txt && \
+echo "-- Test unlink" && \
+mysql -u root -e 'select fb_unlink("/tmp/out.txt")' && \
+echo "-- Delete rows" && \
+mysql -u root -e 'select fb_delete("/tmp/fbtest", "c2 >= 0")' && \
+echo "-- Insert row" && \
+mysql -u root -e "select fb_insert('/tmp/fbtest', '1|1','|')" && \
+echo "-- Count rows (should be one)" && \
 mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.txt","select count(*)")' && \
 sudo cat /tmp/out.txt 

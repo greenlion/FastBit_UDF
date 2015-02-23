@@ -42,56 +42,116 @@ static void printQueryResults(std::ostream &out, ibis::query &q);
 #define zapping 0
 #define outputbinary 0
 
-bool appendToOutput = false;
 const char *outputname = 0;
 const char *ridfile = 0;
 int verbose_level=  0; // replace ibis::debugLevel (globals in UDF are bad :)
 
-my_bool fb_create_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
-	if(args->arg_count != 2) {
-		strcpy(message, "This function takes string arguments: index_path, column_specification"); 
+bool has_null(const UDF_ARGS *args) {
+	for(int i=0;i<args->arg_count;i++) {
+        	if(args->args[0] == NULL) {
+			return 1;
+	        }
+	}
+	return 0;
+
+}
+
+my_bool fb_unlink_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
+	if(args->arg_count != 1) {
+		strcpy(message, "Takes args: file_path"); 
+		return 1;
+	}
+	if(args->arg_type[0] != STRING_RESULT) {
+		strcpy(message, "file_path must be a string");
 		return 1;
 	}
 	return 0;
 }
 
-long long fb_create(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
+long long fb_unlink(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
+	if(has_null(args)) {
+		*is_null = 1;
+		return 0;
+	}
 	int err;
 	long long retval = 0;
-        if(args->args[0] == NULL || args->args[0] == NULL) {
-                *is_null=1;
-                return 0;
-        }
+	std::string file(args->args[0], args->lengths[0]);
+
+	// The specified directory already exists
+	if(!file_exists(file.c_str())) {
+		return(-1);
+	}
+	long long ierr = unlink(file.c_str());
+	return ierr;
+}
+
+void fb_unlink_deinit(UDF_INIT *initid) { 
+
+}
+
+my_bool fb_create_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
+	if(args->arg_count != 2) {
+		strcpy(message, "Takes args: index_path, column_specification"); 
+		return 1;
+	}
+	for(int i=0;i<args->arg_count;i++) {
+		if(args->arg_type[i] != STRING_RESULT) {
+			std::string arg;
+			switch(i) {
+				case 0:
+					arg = "index_path";	
+				break;
+				case 1:
+					arg = "colspec";
+				break;
+
+					
+			}
+			arg += " must be a string";
+			strcpy(message, arg.c_str());
+			return 1;
+		} 
+	}
+	return 0;
+}
+
+long long fb_create(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
+	if(has_null(args)) {
+		*is_null = 1;
+		return 0;
+	}
+	int err;
+	long long retval = 0;
 
 	// The specified directory already exists
 	if(!file_exists(args->args[0])) {
 		err = mkdir(args->args[0], S_IRWXU | S_IXOTH);
 		if(err != 0) {
-			return(99998);
+			return(-1);
 		}
 	} else {
-		return(99997);
+		return(-2);
 	}
 
 	// Does the colspec already exist?	
 	std::string filename(args->args[0]);
         filename = filename + "/udf_colspec.txt";
 	if(file_exists(filename.c_str())) {
-		return(99999);
+		return(-3);
 	}
 
 	// Create the colref file
 	FILE* fp;
 	fp = fopen(filename.c_str(),"w");
 	if(fp == NULL) {
-		return(100000);
+		return(-4);
 	}
 
 	// Write out the contents of the file
 	err = fputs(args->args[1],fp);
 	fclose(fp);
 	if(err < 0) {
-		return(100001);
+		return(-5);
 	}
 	
 	return retval;
@@ -101,9 +161,108 @@ void fb_create_deinit(UDF_INIT *initid) {
 
 }
 
+my_bool fb_insert_init(UDF_INIT *initd, UDF_ARGS *args, char *message) {
+	if(args->arg_count < 2) {
+		strcpy(message, "Takes args: index_path, insert_string, [delimiter=,]"); 
+		return 1;
+	}
+	for(int i=0;i<args->arg_count;i++) {
+		if(args->arg_type[i] != STRING_RESULT) {
+			std::string arg;
+			switch(i) {
+				case 0:
+					arg = "index_path";	
+				break;
+				case 1:
+					arg = "insert_string";
+				break;
+
+					
+			}
+			arg += " must be a string";
+			strcpy(message, arg.c_str());
+			return 1;
+		} 
+	}
+	return 0;
+}
+
+long long fb_insert(UDF_INIT *initd, UDF_ARGS *args, char *is_null, char *error) {
+	if(has_null(args)) {
+		*is_null = 1;
+		return 0;
+	}
+	long long ierr;
+	std::string outdir(args->args[0],args->lengths[0]);
+	std::string insert(args->args[1],args->lengths[1]);
+	std::string del = ",";
+	if(args->arg_count > 2) { 
+		del.assign(args->args[2],args->lengths[2]);
+	}
+	std::string metadatafile(outdir + "/udf_colspec.txt");
+	std::unique_ptr<ibis::tablex> ta(ibis::tablex::create());
+	ta->setPartitionMax(100000000);
+	ta->readNamesAndTypes(metadatafile.c_str());
+	outdir += "/inserts";
+	ierr = ta->appendRow(insert.c_str(), ",");
+	if (ierr < 0) return ierr;
+	ierr = ta->write(outdir.c_str(), "", "", "");
+	if (ierr < 0) return ierr;
+	return 1;
+}
+
+void fb_insert_deinit(UDF_INIT *initid) { 
+
+}
+
+
+my_bool fb_delete_init(UDF_INIT *initd, UDF_ARGS *args, char *message) {
+	if(args->arg_count != 2) {
+		strcpy(message, "Takes args: idx_path, where_clause"); 
+		return 1;
+	}
+	return 0;
+}
+
+long long fb_delete(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
+	if(has_null(args)) {
+		*is_null = 1;
+		return 0;
+	}
+	long ierr = 0;
+	long long retval = 0;
+	ibis::partList parts;
+	std::string path(args->args[0], args->lengths[0]);
+	std::string yankstring(args->args[1], args->lengths[1]);
+
+	std::string s = yankstring.substr(0,5); 
+	std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+	if (s == "where") {
+		yankstring = yankstring.substr(6,yankstring.length());
+	}
+
+	if (yankstring == "") return 0;
+	int part_count = ibis::util::gatherParts(parts, path.c_str());
+	if(part_count <= 0) return 0;
+
+	for (ibis::partList::iterator it = parts.begin();
+		it != parts.end(); ++ it) {
+		ierr = (*it)->deactivate(yankstring.c_str());
+		if(ierr < 0) return ierr;
+		retval += ierr;
+		ierr = (*it)->purgeInactive();
+		if(ierr < 0) return ierr;
+	}
+	return retval;
+}
+
+void fb_delete_deinit(UDF_INIT *initid) {
+
+}
+
 my_bool fb_load_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
 	if(args->arg_count < 2 || args->arg_count > 4 ) {
-		strcpy(message, "Too_few_args: idx_path, load_path, delim, [max_rows_in_partition]"); 
+		strcpy(message, "Takes args: idx_path, load_path, [delim=,], [max_rows_in_part=100000000]"); 
 		return 1;
 	}
 
@@ -130,7 +289,7 @@ my_bool fb_load_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
 	}
 
 	if(args->arg_count > 2 && args->arg_type[3] != INT_RESULT) {
-		strcpy(message, "max_rows_in_partition must be an integer");
+		strcpy(message, "max_rows_in_part must be an integer");
 		return 1;
 	}
 
@@ -138,6 +297,10 @@ my_bool fb_load_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
 }
 
 long long fb_load(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
+	if(has_null(args)) {
+		*is_null = 1;
+		return 0;
+	}
 	/* Handle arguments */
         std::string outdir(args->args[0]);
 	std::string csv_path(args->args[1]);
@@ -224,6 +387,10 @@ my_bool fb_query_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
 }
 
 char* fb_query(UDF_INIT *initid, UDF_ARGS *args, char *result, long long *length, char *is_null, char *error) {
+	if(has_null(args)) {
+		*is_null = 1;
+		return 0;
+	}
 	char *retval = 0;
 	std::string path = "", out_file = "", select = "";
 	unsigned part_count = 0;
@@ -749,6 +916,7 @@ static void doQuaere(const ibis::partList& pl,
         0 != strcmp(outputname, "/dev/null")) {
         // open the file now to clear the existing content, in cases of
         // error, the output file would have been cleared
+	bool appendToOutput = false;
         outputstream.open(outputname,
                           std::ios::out | 
                           (appendToOutput ? std::ios::app : std::ios::trunc));
@@ -1092,6 +1260,7 @@ static void doQuery(ibis::part* tbl, const char* uid, const char* wstr,
         0 != strcmp(outputname, "/dev/null")) {
         // open the file now to clear the existing content, in cases of
         // error, the output file would have been cleared
+	bool appendToOutput = false;
         outputstream.open(outputname,
                           std::ios::out | 
                           (appendToOutput ? std::ios::app : std::ios::trunc));
@@ -1487,6 +1656,7 @@ static void doMeshQuery(ibis::part* tbl, const char* uid, const char* wstr,
         0 != strcmp(outputname, "/dev/null")) {
         // open the file now to clear the existing content, in cases of
         // error, the output file would have been cleared
+	bool appendToOutput = false;
         outputstream.open(outputname,
                           std::ios::out | 
                           (appendToOutput ? std::ios::app : std::ios::trunc));
@@ -1794,6 +1964,7 @@ static void xdoQuery(ibis::part* tbl, const char* uid, const char* wstr,
         0 != strcmp(outputname, "/dev/null")) {
         // open the file now to clear the existing content, in cases of
         // error, the output file would have been cleared
+	bool appendToOutput = false;
         outputstream.open(outputname,
                           std::ios::out | 
                           (appendToOutput ? std::ios::app : std::ios::trunc));
@@ -1876,4 +2047,51 @@ static void xdoQuery(ibis::part* tbl, const char* uid, const char* wstr,
         }
     } // if (asstr != 0 && num1 > 0)
 } // xdoQuery
+
+/*
+static void reverseDeletion() {
+    if (keepstring == 0 || *keepstring == 0) return;
+
+    if (ibis::util::getFileSize(keepstring) > 0) {
+	// assume the file contain a list of numbers that are row numbers
+	std::vector<uint32_t> rows;
+	readInts(keepstring, rows);
+	if (rows.empty()) {
+	    LOGGER(ibis::gVerbose >= 0)
+		<< "reverseDeletion -- file \"" << keepstring
+		<< "\" does not start with integers, integer expected";
+	    return;
+	}
+	LOGGER(ibis::gVerbose > 0)
+	    << "reverseDeletion will invoke deactive on "
+	    << ibis::datasets.size()
+	    << " data partition" << (ibis::datasets.size() > 1 ? "s" : "")
+	    << " with " << rows.size() << " row number"
+	    << (rows.size() > 1 ? "s" : "");
+
+	for (ibis::partList::iterator it = ibis::datasets.begin();
+	     it != ibis::datasets.end(); ++ it) {
+	    long ierr = (*it)->reactivate(rows);
+	    LOGGER(ibis::gVerbose >= 0)
+		<< "reverseDeletion -- reactivate(" << (*it)->name()
+		<< ") returned " << ierr;
+	}
+    }
+    else {
+	LOGGER(ibis::gVerbose > 0)
+	    << "reverseDeletion will invoke deactive on "
+	    << ibis::datasets.size()
+	    << " data partition" << (ibis::datasets.size() > 1 ? "s" : "")
+	    << " with \"" << keepstring << "\"";
+
+	for (ibis::partList::iterator it = ibis::datasets.begin();
+	     it != ibis::datasets.end(); ++ it) {
+	    long ierr = (*it)->reactivate(keepstring);
+	    LOGGER(ibis::gVerbose >= 0)
+		<< "reverseDeletion -- reactivate(" << (*it)->name()
+		<< ", " << keepstring << ") returned " << ierr;
+	}
+    }
+} // reverseDeletion
+*/
 

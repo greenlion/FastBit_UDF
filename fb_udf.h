@@ -10,10 +10,17 @@ extern "C" {
 	my_bool fb_query_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
 	char *fb_query(UDF_INIT *initid, UDF_ARGS *args,char *result, long long *length, char *is_null, char *error);
 	void fb_query_deinit(UDF_INIT *initid);
-	my_bool fb_zapresult_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
-	char *fb_zapresult(UDF_INIT *initid, UDF_ARGS *args,char *result, long long *length, char *is_null, char *error);
-	void fb_zapresult_deinit(UDF_INIT *initid);
+	my_bool fb_insert_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	long long fb_insert(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
+	void fb_insert_deinit(UDF_INIT *initid);
+	my_bool fb_delete_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	long long fb_delete(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
+	void fb_delete_deinit(UDF_INIT *initid);
+	my_bool fb_unlink_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	long long fb_unlink(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
+	void fb_unlink_deinit(UDF_INIT *initid);
 }
+
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
