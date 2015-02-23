@@ -1,4 +1,14 @@
+/* FastBit MySQL UDF library
+ * -- This library is inserted into a running MySQL server to enable creation and manipulation of 
+ * -- bitmap indexed data using the FastBit WAH library.
+ * (c) 2015 Justin Swanhart, all rights reserved
+   Portions copyright 2001-2014 the Regents of the University of California
+ */
 #include "fb_udf.h"
+#include <plugin.h>
+extern pthread_key_t THR_THD;
+THD *current_thd() { return (THD*)pthread_getspecific(THR_THD); }
+#define current_thd current_thd()
 
 int file_exists (const char * file_name);
 
@@ -257,18 +267,14 @@ char* fb_query(UDF_INIT *initid, UDF_ARGS *args, char *result, long long *length
 void fb_query_deinit(UDF_INIT *initid) { 
 
 }
-
-//  HELPER FUNCTIONS 
-//  -----------------------------------------------------------------------------
-/*
-THD *current_thd() { return (THD*)pthread_getspecific(THR_THD); }
-bool set_mysql_var(const char* name, const char* m) {
-	THD *thd = current_thd();
-	user_var_entry *entry = get_variable(&thd->user_vars, name, true);
-	if(!entry) return false;	
-	entry->reset_value();
-	entry->store((void*)m, strlen(m), STRING_RESULT);
-}*/
+    /*
+    HELPER FUNCTIONS 
+    These functions are modified slightly from the ibis.cpp example from FastBit
+    Author: John Wu <John.Wu at ACM.org>
+    Lawrence Berkeley National Laboratory
+    Copyright 2001-2014 the Regents of the University of California
+    -----------------------------------------------------------------------------
+    */
 
 static void printQueryResults(std::ostream &out, ibis::query &q) {
     ibis::query::result cursor(q);
