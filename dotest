@@ -1,0 +1,16 @@
+mysql -uroot -e 'delete from mysql.func' && \
+sudo service mysqld stop && \
+make && \
+sudo make install && sudo rm -rf /tmp/fbtest && \
+sudo service mysqld start && \
+mysql -u root -e "create function fb_query returns string soname 'fb_udf.so';" && \
+mysql -u root -e "create function fb_create returns integer soname 'fb_udf.so';" && \
+mysql -u root -e "create function fb_load returns integer soname 'fb_udf.so';" 
+if [ -f /tmp/out.txt ] 
+then
+  sudo rm /tmp/out.txt 
+fi;
+mysql -u root -e 'select fb_create("/tmp/fbtest","c2:int,c3:int")' && \
+mysql -u root -e 'select fb_load("/tmp/fbtest","/tmp/fbdata.txt")' && \
+mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.txt","select count(*)")' && \
+sudo cat /tmp/out.txt 

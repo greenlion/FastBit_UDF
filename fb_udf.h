@@ -1,4 +1,19 @@
 #include <mysql.h>
+
+extern "C" { 
+	my_bool fb_create_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	long long fb_create(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
+	void fb_create_deinit(UDF_INIT *initid);
+	my_bool fb_load_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	long long fb_load(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
+	void fb_load_deinit(UDF_INIT *initid);
+	my_bool fb_query_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	char *fb_query(UDF_INIT *initid, UDF_ARGS *args,char *result, long long *length, char *is_null, char *error);
+	void fb_query_deinit(UDF_INIT *initid);
+	my_bool fb_zapresult_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	char *fb_zapresult(UDF_INIT *initid, UDF_ARGS *args,char *result, long long *length, char *is_null, char *error);
+	void fb_zapresult_deinit(UDF_INIT *initid);
+}
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -16,23 +31,4 @@
 #include <algorithm>    // std::sort
 #include <memory>       // std::unique_ptr
 #include <iomanip>      // std::setprecision
-//#include <sql_class.h>
-//#include <hash.h>
-//extern pthread_key_t THR_THD;
 
-/*
-class user_var_entry;
-class Name_string;
-*/
-
-
-
-extern "C" { 
-	my_bool fb_create_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
-	long long fb_create(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
-	void fb_create_deinit(UDF_INIT *initid);
-	my_bool fb_load_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
-	long long fb_load(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
-	void fb_load_deinit(UDF_INIT *initid);
- //       user_var_entry *get_variable(HASH *hash, const Name_string &name, bool create_if_not_exists);
-}
