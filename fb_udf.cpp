@@ -9,15 +9,18 @@
 extern pthread_key_t THR_THD;
 THD *current_thd() { return (THD*)pthread_getspecific(THR_THD); }
 #define current_thd current_thd()
+#ifndef MAXSTR
+#define MAXSTR 766
+#endif
 
 int file_exists (const char * file_name);
 
 static long long processSelect(const char* uid, const char* qstr,
-			ibis::partList& prts, std::string out_file); 
+			ibis::partList& prts, std::string out_file,std::ostringstream &datatypes); 
 static long long tableSelect(const ibis::partList &pl, const char* uid,
 			const char* wstr, const char* sstr,
 			const char* ordkeys,
-			uint32_t limit, uint32_t start,std::string out_file); 
+			uint32_t limit, uint32_t start,std::string out_file,std::ostringstream &datatypes); 
 static void doQuaere(const ibis::partList& pl,
 		     const char *sstr, const char *fstr, const char *wstr,
 		     const char *ordkeys, uint32_t limit, uint32_t start);
@@ -357,6 +360,8 @@ my_bool fb_query_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
 		return 1;
 	}
 
+        initid->ptr = NULL;
+
 	std::string msg = "";
 	for(int i=0;i<args->arg_count && i < 3 ;i++) {
 		if(args->arg_type[i] != STRING_RESULT) {
@@ -399,6 +404,7 @@ char* fb_query(UDF_INIT *initid, UDF_ARGS *args, char *result, long long *length
 	long long offset = 0;
 	ibis::partList parts;
 	std::string message = "";
+	std::ostringstream datatypes;
 
 	path.assign(args->args[0], args->lengths[0]);
 	out_file.assign(args->args[1], args->lengths[1]);
@@ -415,25 +421,33 @@ char* fb_query(UDF_INIT *initid, UDF_ARGS *args, char *result, long long *length
 		if( part_count == 0 || parts.empty()) {
 			message = "QUERY_ERROR: No data partitions found";
 		} else { /* actually run the query */
-			int result = processSelect(uid, select.c_str(), parts, out_file);
+			int result = processSelect(uid, select.c_str(), parts, out_file,datatypes);
 			if(result < 0) {
 				message = "QUERY_ERROR processSelect reported error: " + std::to_string(result);
 			} else {
-				message = "QUERY_OK " + std::to_string(result);
+				message = "QUERY_OK " + std::to_string(result) + " (" + datatypes.str() + ")";
 			}
 		}
 	}
 
-	memset(result,0,766);
-	*length = message.length();
-	strncpy(result, message.c_str(), *length);
+        if(message.length() > MAXSTR) {
+		initid->ptr = (char*)malloc(*length);	
+		*length = message.length();
+		memcpy(initid->ptr, message.c_str(), *length);
+		return initid->ptr;
+        } else { 
+		memset(result,0,MAXSTR);
+		*length = message.length();
+		strncpy(result, message.c_str(), *length);
+	}
 	return result;
 	
-	return retval;
 }
 
 void fb_query_deinit(UDF_INIT *initid) { 
-
+	if(initid->ptr != NULL) {
+		free(initid->ptr);
+	}
 }
     /*
     HELPER FUNCTIONS 
@@ -468,22 +482,20 @@ int file_exists (const char * file_name)
 }
 
 static long long tableSelect(const ibis::partList &pl, const char* uid,
- 
 			const char* wstr, const char* sstr,
 			const char* ordkeys,
-			uint32_t limit, uint32_t start, std::string out_file) {
+			uint32_t limit, uint32_t start, std::string out_file,std::ostringstream& datatypes){
     int64_t ierr;
     std::unique_ptr<ibis::table> tbl(ibis::table::create(pl));
     ibis::horometer timer;
     std::ofstream outputstream;
 
-    outputstream.open(out_file);
-
     std::unique_ptr<ibis::table> sel1(tbl->select(sstr, wstr));
     if (sel1.get() == 0) {
-	outputstream << "FAILURE\n";
-	return false;
+	return -1;
     }
+
+    outputstream.open(out_file);
 
     if (sel1->nRows() > 1 && ((ordkeys && *ordkeys) || limit > 0)) {
 	// top-K query
@@ -491,9 +503,59 @@ static long long tableSelect(const ibis::partList &pl, const char* uid,
     }
 
     if (showheader)
-      sel1->dumpNames(outputstream, ", ");
+        sel1->dumpNames(outputstream, ", ");
     if (limit == 0)
-      limit = static_cast<uint32_t>(sel1->nRows());
+        limit = static_cast<uint32_t>(sel1->nRows());
+    ibis::table::stringList SL = sel1->columnNames();
+    ibis::table::typeList CL = sel1->columnTypes();
+    int i=0;
+    for (ibis::table::stringList::iterator it = SL.begin();
+        it != SL.end(); ++ it) {
+        if(datatypes.str() != "") datatypes << ", ";
+        datatypes << "`" + std::string(*it) + "`"; 
+        ibis::TYPE_T t = CL[i];
+        ++i;
+
+        switch(t) {
+            case ibis::BYTE:
+                datatypes << " TINYINT";
+                break;
+            case ibis::UBYTE:
+                datatypes << " TINYINT UNSIGNED";
+                break;
+            case ibis::SHORT:
+                datatypes << " SMALLINT";
+                break;
+            case ibis::USHORT:
+                datatypes << " SMALLINT UNSIGNED";
+                break;
+            case ibis::INT:
+                datatypes << " INT";
+                break;
+            case ibis::UINT:
+                datatypes << " INT UNSIGNED";
+                break;
+            case ibis::LONG:
+                datatypes << " BIGINT";
+                break;
+            case ibis::ULONG:
+                datatypes << " BIGINT UNSIGNED";
+            break;
+            case ibis::FLOAT:
+                datatypes << " FLOAT";
+            break;
+            case ibis::DOUBLE:
+                datatypes << " DOUBLE";
+            break;
+            case ibis::TEXT:
+                datatypes << " LONGTEXT";
+            break;
+
+            default:
+                datatypes << " LONGBLOB";
+        }
+    }
+        
     ierr = sel1->dump(outputstream, start, limit, ", ");
     outputstream.close();
     return sel1->nRows();
@@ -501,7 +563,7 @@ static long long tableSelect(const ibis::partList &pl, const char* uid,
 
 // parse the query string and evaluate the specified query
 static long long processSelect(const char* uid, const char* qstr,
-			ibis::partList& prts, std::string out_file) {
+			ibis::partList& prts, std::string out_file, std::ostringstream &datatypes) {
     if (qstr == 0 || *qstr == 0) return -100;
 
     // got a valid string
@@ -722,7 +784,7 @@ static long long processSelect(const char* uid, const char* qstr,
 	    }
 	    try {
 		row_count = tableSelect(tl2, uid, wstr.c_str(), sstr.c_str(),
-			    ordkeys.c_str(), limit, start, out_file);
+			    ordkeys.c_str(), limit, start, out_file,datatypes);
 	    }
 	    catch (...) {
 		if (ibis::util::serialNumber() % 3 == 0) {
@@ -736,13 +798,13 @@ static long long processSelect(const char* uid, const char* qstr,
 		    (*it)->emptyCache();
 		}
 		row_count = tableSelect(tl2, uid, wstr.c_str(), sstr.c_str(),
-			    ordkeys.c_str(), limit, start, out_file);
+			    ordkeys.c_str(), limit, start, out_file,datatypes);
 	    }
 	}
 	else {
 	    try {
 		row_count = tableSelect(prts, uid, wstr.c_str(), sstr.c_str(),
-			    ordkeys.c_str(), limit, start, out_file);
+			    ordkeys.c_str(), limit, start, out_file,datatypes);
 	    }
 	    catch (...) {
 		if (ibis::util::serialNumber() % 3 == 0) {
@@ -756,7 +818,7 @@ static long long processSelect(const char* uid, const char* qstr,
 		    (*it)->emptyCache();
 		}
 		row_count = tableSelect(prts, uid, wstr.c_str(), sstr.c_str(),
-			    ordkeys.c_str(), limit, start, out_file);
+			    ordkeys.c_str(), limit, start, out_file,datatypes);
 	    }
 	}
     }
