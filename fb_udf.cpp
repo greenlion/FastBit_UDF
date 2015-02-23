@@ -413,13 +413,14 @@ char* fb_query(UDF_INIT *initid, UDF_ARGS *args, char *result, long long *length
 
 		// if there are no data partitions return an error
 		if( part_count == 0 || parts.empty()) {
-			message = "ERROR: No data partitions found";
+			message = "QUERY_ERROR: No data partitions found";
 		} else { /* actually run the query */
 			int result = processSelect(uid, select.c_str(), parts, out_file);
 			if(result < 0) {
 				message = "QUERY_ERROR processSelect reported error: " + std::to_string(result);
+			} else {
+				message = "QUERY_OK " + std::to_string(result);
 			}
-			message = "QUERY_OK " + std::to_string(result);
 		}
 	}
 
