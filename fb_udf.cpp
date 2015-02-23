@@ -204,7 +204,7 @@ long long fb_insert(UDF_INIT *initd, UDF_ARGS *args, char *is_null, char *error)
 	ta->setPartitionMax(100000000);
 	ta->readNamesAndTypes(metadatafile.c_str());
 	outdir += "/inserts";
-	ierr = ta->appendRow(insert.c_str(), ",");
+	ierr = ta->appendRow(insert.c_str(), del.c_str());
 	if (ierr < 0) return ierr;
 	ierr = ta->write(outdir.c_str(), "", "", "");
 	if (ierr < 0) return ierr;
