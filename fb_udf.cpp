@@ -6,52 +6,28 @@
  */
 #include "fb_udf.h"
 #include <plugin.h>
+
+typedef struct fbudf_insert_state_t {
+  std::string outdir="";
+  ibis::tablex* ta = ibis::tablex::create();
+  bool errstate = false;
+} FBISTATE, *FBISTATEPTR;
+
+/*push_warning_printf(THD *thd, Sql_condition::enum_warning_level level,
+			 uint code, const char *format, ...);
+
 extern pthread_key_t THR_THD;
 THD *current_thd() { return (THD*)pthread_getspecific(THR_THD); }
 #define current_thd current_thd()
-#ifndef MAXSTR
-#define MAXSTR 766
-#endif
-
-int file_exists (const char * file_name);
-
-static long long processSelect(const char* uid, const char* qstr,
-			ibis::partList& prts, std::string out_file,std::ostringstream &datatypes); 
-static long long tableSelect(const ibis::partList &pl, const char* uid,
-			const char* wstr, const char* sstr,
-			const char* ordkeys,
-			uint32_t limit, uint32_t start,std::string out_file,std::ostringstream &datatypes); 
-static void doQuaere(const ibis::partList& pl,
-		     const char *sstr, const char *fstr, const char *wstr,
-		     const char *ordkeys, uint32_t limit, uint32_t start);
-
-static void doQuery(ibis::part* tbl, const char* uid, const char* wstr,
-		    const char* sstr, const char* ordkeys,
-		    uint32_t limit, uint32_t start); 
-
-static void doMeshQuery(ibis::part* tbl, const char* uid, const char* wstr,
-			const char* sstr); 
-
-static void xdoQuery(ibis::part* tbl, const char* uid, const char* wstr,
-		     const char* sstr); 
-static void printQueryResults(std::ostream &out, ibis::query &q); 
-
-/* these were variables in ibis but they can be constants here */
-#define testing 0
-#define showheader 0
-#define recheckvalues 0
-#define sequential_scan 0 
-#define estimation_opt 0
-#define zapping 0
-#define outputbinary 0
+*/
 
 const char *outputname = 0;
 const char *ridfile = 0;
 int verbose_level=  0; // replace ibis::debugLevel (globals in UDF are bad :)
 
-bool has_null(const UDF_ARGS *args) {
-	for(int i=0;i<args->arg_count;i++) {
-        	if(args->args[0] == NULL) {
+bool has_null(const UDF_ARGS *args, int stop_at = 0) {
+	for(int i=0;i<args->arg_count && i <= stop_at ;i++) {
+        	if(args->args[i] == NULL) {
 			return 1;
 	        }
 	}
@@ -164,7 +140,7 @@ void fb_create_deinit(UDF_INIT *initid) {
 
 }
 
-my_bool fb_insert_init(UDF_INIT *initd, UDF_ARGS *args, char *message) {
+my_bool fb_insert_init(UDF_INIT *initid, UDF_ARGS *args, char *message) {
 	if(args->arg_count < 2) {
 		strcpy(message, "Takes args: index_path, insert_string, [delimiter=,]"); 
 		return 1;
@@ -179,6 +155,9 @@ my_bool fb_insert_init(UDF_INIT *initd, UDF_ARGS *args, char *message) {
 				case 1:
 					arg = "insert_string";
 				break;
+				case 2:
+					arg = "delimiter";
+				break;
 
 					
 			}
@@ -187,10 +166,12 @@ my_bool fb_insert_init(UDF_INIT *initd, UDF_ARGS *args, char *message) {
 			return 1;
 		} 
 	}
+	FBISTATEPTR s = new FBISTATE;
+	initid->ptr = (char*)s;
 	return 0;
 }
 
-long long fb_insert(UDF_INIT *initd, UDF_ARGS *args, char *is_null, char *error) {
+long long fb_insert(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
 	if(has_null(args)) {
 		*is_null = 1;
 		return 0;
@@ -202,24 +183,114 @@ long long fb_insert(UDF_INIT *initd, UDF_ARGS *args, char *is_null, char *error)
 	if(args->arg_count > 2) { 
 		del.assign(args->args[2],args->lengths[2]);
 	}
-	std::string metadatafile(outdir + "/udf_colspec.txt");
-	std::unique_ptr<ibis::tablex> ta(ibis::tablex::create());
-	ta->setPartitionMax(100000000);
-	ta->readNamesAndTypes(metadatafile.c_str());
-	outdir += "/inserts";
-	ierr = ta->appendRow(insert.c_str(), del.c_str());
-	if (ierr < 0) return ierr;
-	ierr = ta->write(outdir.c_str(), "", "", "");
-	if (ierr < 0) return ierr;
+	FBISTATEPTR s = (FBISTATEPTR)initid->ptr;
+	if (s->outdir == "") {
+		s->outdir.assign(args->args[0],args->lengths[0]);
+		std::string metadatafile(s->outdir + "/udf_colspec.txt");
+		s->outdir += "/inserts";
+
+		long long ierr = s->ta->readNamesAndTypes(metadatafile.c_str());
+		if(ierr < 0) {
+			s->errstate = true;
+			strcpy(error, "Could not read names and types");	
+			return ierr;
+		}
+		s->ta->setPartitionMax(100000000);
+		
+	} 
+		
+	ierr = s->ta->appendRow(insert.c_str(), del.c_str());
+	if(ierr < 0) {
+		s->errstate = true;
+		strcpy(error, "INSERT ERROR");
+		return ierr;
+	}
 	return 1;
 }
 
 void fb_insert_deinit(UDF_INIT *initid) { 
-
+	FBISTATEPTR s = (FBISTATEPTR)initid->ptr;
+	if(!s->errstate) s->ta->write(s->outdir.c_str(), "", "", ""); 
+	free(s->ta);
+	delete s;
 }
 
 
-my_bool fb_delete_init(UDF_INIT *initd, UDF_ARGS *args, char *message) {
+my_bool fb_insert2_init(UDF_INIT *initid, UDF_ARGS *args, char *message) {
+	if(args->arg_count < 2) {
+		strcpy(message, "Takes args: index_path, val1, ..., valN"); 
+		return 1;
+	}
+	if(args->arg_type[0] != STRING_RESULT) {
+		strcpy(message, "index_path must be a string");
+		return 1;
+	}
+	FBISTATEPTR s = new FBISTATE;
+	initid->ptr = (char*)s;
+	
+	return 0;
+}
+
+
+long long fb_insert2(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
+	if(has_null(args,0)) {
+		*is_null = 1;
+		return 0;
+	}
+	FBISTATEPTR s = (FBISTATEPTR)initid->ptr;
+	long long ierr;
+	if (s->outdir == "") {
+		s->outdir.assign(args->args[0],args->lengths[0]);
+		std::string metadatafile(s->outdir + "/udf_colspec.txt");
+		s->outdir += "/inserts";
+
+		ierr = s->ta->readNamesAndTypes(metadatafile.c_str());
+		if(ierr < 0) {
+			s->errstate = true;
+			strcpy(error, "Could not read names and types");	
+			return ierr;
+		}
+		s->ta->setPartitionMax(100000000);
+		
+	} 
+		
+	std::string insert = "";
+	for(int i = 1; i < args->arg_count; ++i) {
+		if(insert != "") insert += ",";
+		if(args->args[i] == NULL) {
+			continue;
+		}
+		if(args->arg_type[i] == STRING_RESULT) {
+			insert +=  "'" + std::string(args->args[i], args->lengths[i]) + "'";
+			continue;
+		} 	
+		if(args->arg_type[i] == INT_RESULT) {
+			insert +=  std::to_string(*(long long *)args->args[i]); 
+			continue;
+		}
+		insert +=  std::to_string(*(double *)args->args[i]); 
+	}	
+
+	ierr = s->ta->appendRow(insert.c_str(), ",");
+	if(ierr < 0) {
+		strcpy(error,"INSERT ERROR");
+		s->errstate = true;
+		strcpy(error, "Could not insert");	
+		return ierr;
+	}
+
+	return 1;
+}
+
+void fb_insert2_deinit(UDF_INIT *initid) { 
+	FBISTATEPTR s = (FBISTATEPTR)initid->ptr;
+	if(!s->errstate) s->ta->write(s->outdir.c_str(), "", "", ""); 
+	free(s->ta);
+	delete s;
+}
+
+
+my_bool fb_delete_init(UDF_INIT *initid, UDF_ARGS *args, char *message) {
 	if(args->arg_count != 2) {
 		strcpy(message, "Takes args: idx_path, where_clause"); 
 		return 1;

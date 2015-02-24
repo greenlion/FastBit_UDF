@@ -28,4 +28,9 @@ echo "-- Insert row" && \
 mysql -u root -e "select fb_insert('/tmp/fbtest', '1|1','|')" && \
 echo "-- Count rows (should be one)" && \
 mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.txt","select count(*)")' && \
-sudo cat /tmp/out.txt 
+sudo cat /tmp/out.txt  && \
+mysql -u root -e 'select fb_insert2("/tmp/fbtest",10,20)' && \
+sudo rm /tmp/out.txt && \
+mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.txt","select c2,c3 where c2>0")' && \
+sudo cat /tmp/out.txt && \
+sudo rm /tmp/out.txt
