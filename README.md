@@ -113,13 +113,11 @@ a table to store the results in.
 +-------------------------------------------------------------------------------------+
 | QUERY_OK 1 (`c2` INT, `cnt` INT UNSIGNED, `avg` DOUBLE)                             |
 +-------------------------------------------------------------------------------------+
-1, 1, 1
 
 ### The results are stored in the output file
 *cat /tmp/out.txt*
-```
-10000000
-```
+``` 1, 1, 1 ```
+
 ## fb_unlink
 ### Unlink files (be careful!)
 
