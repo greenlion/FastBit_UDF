@@ -113,10 +113,13 @@ a table to store the results in.
 +-------------------------------------------------------------------------------------+
 | QUERY_OK 1 (`c2` INT, `cnt` INT UNSIGNED, `avg` DOUBLE)                             |
 +-------------------------------------------------------------------------------------+
+```
 
 ### The results are stored in the output file
 *cat /tmp/out.txt*
-``` 1, 1, 1 ```
+```
+1, 1, 1 
+```
 
 ## fb_unlink
 ### Unlink files (be careful!)
@@ -134,6 +137,7 @@ You also don't want to waste disk space on a bunch of intermediate files you don
 |                         0 |
 +---------------------------+
 ```
+
 ## fb_delete
 ### Delete rows
 Deletes rows (and zaps them) from the table
