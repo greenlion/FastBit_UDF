@@ -50,12 +50,12 @@ The query string (used with fb_query) is a FastBit ibis style query string withi
 /// therefore 'count(*)' in the second example may be smaller than that
 /// of the first example.
 ```
-
-## Create an table/index
+## fb_create
+### Create an table/index
 These UDF treat a single directory as one table.  Inside of the directory are
 directories called partitions, which are created automatically when data is loaded in bulk.   Partitions themselves may contain sub-partitions, also maintained automatically. You specify the column names and types when creating the index as a "column specification", or colspec.  It is a comma separarted list of columns names and data types.
 
-### Data types available
+#### Data types available
 * byte: 8-bit signed integer.
 * short: 16-bit signed integer.
 * int: 32-bit signed integer.
@@ -69,7 +69,7 @@ directories called partitions, which are created automatically when data is load
 * key: String values with a small number of distinct choices.
 * text: Arbitrary string values.
 
-### Create a table with two integer columns called c2 and c3
+#### Create a table with two integer columns called c2 and c3
 
 * usage: fb_create(data_path, colspec)
 * returns: 0 on success, negative on failure
@@ -82,7 +82,8 @@ directories called partitions, which are created automatically when data is load
 +------------------------------------------+
 ```
 
-## Loading a CSV file into the table/index
+##fb_load
+### Loading a CSV file into the table/index
 
 * usage: fb_load(data_path, file_name, [delimiter=,], [max_per_partition=100000000])
 * returns: number of rows loaded on success, negative on failure
@@ -96,7 +97,8 @@ note: an entire column of a partition is loaded into memory.  100M rows the the 
 +------------------------------------------+
 ```
 
-## Query the table to get a row count
+## fb_query
+### Query the table 
 
 * usage: fb_query(data_path,output_file,query_string)
 * returns: QUERY_OK row_count or ERROR error_message
@@ -113,11 +115,13 @@ a table to store the results in.
 +-------------------------------------------------------------------------------------+
 1, 1, 1
 
-cat /tmp/out.txt
-10000000 
+### The results are stored in the output file
+*cat /tmp/out.txt*
 ```
-
-## Unlink files (be careful!)
+10000000
+```
+## fb_unlink
+### Unlink files (be careful!)
 
 * usage: fb_unlink(file_path)
 * returns: 0 on success, negative on error
@@ -132,8 +136,8 @@ You also don't want to waste disk space on a bunch of intermediate files you don
 |                         0 |
 +---------------------------+
 ```
-
-## Delete rows
+## fb_delete
+### Delete rows
 Deletes rows (and zaps them) from the table
 
 * usage: fb_delete(index_path, where_conditions)
@@ -146,8 +150,8 @@ Deletes rows (and zaps them) from the table
 |                            10000000 |
 +-------------------------------------+
 ```
-
-## Insert a row
+## fb_insert
+### Insert a row
 
 Inserts a delimited row into the database.  Delimter may consist of more than one character, and each is used as a delimiter.  Multi-character delimiters are not supported.  The default delimter is comma (,).  Note that strings don't have to be quoted by it doesn't hurt to quote them with single quotes.
 
@@ -160,4 +164,22 @@ Inserts a delimited row into the database.  Delimter may consist of more than on
 +-------------------------------------+
 |                                   1 |
 +-------------------------------------+
+```
+## fb_insert2
+### Bulk insert (no intermediary file) essentially insert .. select
+
+This function does not take a delimited input string, but instead, each argument (except the first, which is the table location) specifies a column value.  
+
+* usage: fb_insert2(index_path, col1, ..., colN)
+* returns: The function returns 1 on success for each row inserted. On error it returns NULL, or in cases of initialization failure) a negative number.
+
+In testing, this function is 20% faster than exporting data to a flat file, and then importing it with fb_load.  The speedup is mostly due to reduced IO as no intermediary file must be written.  If you already have your data in a text file, use fb_load for best results.
+
+```
+mysql> select fb_insert2('/tmp/fbtest3', c2, c3), count(*) from fbdata group by 1;
++------------------------------------+----------+
+| fb_insert2('/tmp/fbtest3', c2, c3) | count(*) |
++------------------------------------+----------+
+|                                  1 | 10000000 |
++------------------------------------+----------+
 ```
