@@ -8,4 +8,5 @@ create function fb_insert2 returns integer soname 'fb_udf.so';
 create function fb_resort returns integer soname 'fb_udf.so';
 create function fb_debug returns integer soname 'fb_udf.so';
 create function fb_file_get_contents returns string soname 'fb_udf.so';
+create function fb_drop returns integer soname 'fb_udf.so';
 \. routines.sql

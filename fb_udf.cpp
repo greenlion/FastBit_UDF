@@ -5,8 +5,6 @@
    Portions copyright 2001-2014 the Regents of the University of California
  */
 #include "fb_udf.h"
-#include <plugin.h>
-#include <fstream>
 
 typedef struct fbudf_insert_state_t {
   std::string outdir="";
@@ -33,6 +31,50 @@ bool has_null(const UDF_ARGS *args, int stop_at = 0) {
 	        }
 	}
 	return 0;
+
+}
+
+my_bool fb_drop_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
+	if(args->arg_count != 1) {
+		strcpy(message, "Takes args: index_path"); 
+		return 1;
+	}
+	for(int i=0;i<args->arg_count;i++) {
+		if(args->arg_type[i] != STRING_RESULT) {
+			std::string arg;
+			switch(i) {
+				case 0:
+					arg = "index_path";	
+				break;
+					
+			}
+			arg += " must be a string";
+			strcpy(message, arg.c_str());
+			return 1;
+		} 
+	}
+	return 0;
+}
+
+long long fb_drop(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
+	if(has_null(args)) {
+		*is_null = 1;
+		return 0;
+	}
+	int err;
+	long long retval = 0;
+	std::string dir(args->args[0],args->lengths[0]);
+        std::string filename = dir + "/udf_colspec.txt";
+	/* is it an index diretory? */
+	if(!file_exists(filename.c_str())) {
+		return(-3);
+	}
+	rmrf(dir.c_str());
+
+	return 0;
+}
+
+void fb_drop_deinit(UDF_INIT *initid) { 
 
 }
 
@@ -2406,4 +2448,19 @@ static void reverseDeletion() {
     }
 } // reverseDeletion
 */
+
+// The following code is in the public domain and has been acquired from:
+// http://stackoverflow.com/questions/5467725/how-to-delete-a-directory-and-its-contents-in-posix-c/5467788#5467788
+int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
+    int rv = remove(fpath);
+
+    if (rv)
+        perror(fpath);
+
+    return rv;
+}
+
+int rmrf(const char *path) {
+    return nftw(path, unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
+}
 

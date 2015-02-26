@@ -8,6 +8,10 @@
 #include <memory>	// std::unique_ptr
 #include <iomanip>	// std::setprecision
 
+#include <plugin.h>
+#include <fstream>
+#include <ftw.h>
+#include <unistd.h>
 
 #ifndef MAXSTR
 #define MAXSTR 766
@@ -35,6 +39,10 @@ static void doMeshQuery(ibis::part* tbl, const char* uid, const char* wstr,
 static void xdoQuery(ibis::part* tbl, const char* uid, const char* wstr,
 		     const char* sstr); 
 static void printQueryResults(std::ostream &out, ibis::query &q); 
+
+int unlink_cb(const char *fpath, const struct stat *sb, int typeflag, struct FTW *ftwbuf);
+
+int rmrf(const char *path); 
 
 /* these were variables in ibis but they can be constants here */
 #define testing 0
