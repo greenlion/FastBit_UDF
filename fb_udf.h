@@ -67,4 +67,10 @@ extern "C" {
 	my_bool fb_unlink_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
 	long long fb_unlink(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
 	void fb_unlink_deinit(UDF_INIT *initid);
+	my_bool fb_resort_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	long long fb_resort(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
+	void fb_resort_deinit(UDF_INIT *initid);
+	my_bool fb_debug_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	long long fb_debug(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
+	void fb_debug_deinit(UDF_INIT *initid);
 }

@@ -5,3 +5,5 @@ create function fb_delete returns integer soname 'fb_udf.so';
 create function fb_insert returns integer soname 'fb_udf.so';
 create function fb_unlink returns integer soname 'fb_udf.so';
 create function fb_insert2 returns integer soname 'fb_udf.so';
+create function fb_resort returns integer soname 'fb_udf.so';
+create function fb_debug returns integer soname 'fb_udf.so';

@@ -1,4 +1,4 @@
-fastbit-2.0.1/
+fastbit-*/
 lib/
 include/
 bin/
@@ -7,3 +7,6 @@ share/
 *.o
 *.so
 *.swp
+*.log
+*.out
+fastbit/

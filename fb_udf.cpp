@@ -23,7 +23,7 @@ THD *current_thd() { return (THD*)pthread_getspecific(THR_THD); }
 
 const char *outputname = 0;
 const char *ridfile = 0;
-int verbose_level=  0; // replace ibis::debugLevel (globals in UDF are bad :)
+int verbose_level=  0; 
 
 bool has_null(const UDF_ARGS *args, int stop_at = 0) {
 	for(int i=0;i<args->arg_count && i <= stop_at ;i++) {
@@ -34,6 +34,27 @@ bool has_null(const UDF_ARGS *args, int stop_at = 0) {
 	return 0;
 
 }
+
+my_bool fb_debug_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
+	if(args->arg_type[0] != INT_RESULT || args->arg_count != 1) {
+		strcpy(message,"Takes args: debuglevel");
+		return 1;
+	}
+	return 0;
+}
+long long fb_debug(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
+	if(has_null(args) || *(long long*)args->args[0] < 0) {
+		*is_null =1;
+		return 0;
+	}
+	ibis::gVerbose = *(long long*)args->args[0];
+	return ibis::gVerbose;
+}
+
+void fb_debug_deinit(UDF_INIT *initid) { 
+
+}
+
 
 my_bool fb_unlink_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
 	if(args->arg_count != 1) {
@@ -67,6 +88,75 @@ long long fb_unlink(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error
 void fb_unlink_deinit(UDF_INIT *initid) { 
 
 }
+
+my_bool fb_resort_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
+	if(args->arg_count < 1) {
+		strcpy(message, "Takes args: index_path, [col1], ..., [colN]"); 
+		return 1;
+	}
+	for(int i=0;i<args->arg_count;i++) {
+		if(args->arg_type[i] != STRING_RESULT) {
+			std::string arg;
+			switch(i) {
+				case 0:
+					arg = "index_path";	
+				break;
+
+				default:
+					arg = "column_name";
+				break;
+			}
+			arg += " must be a string";
+			strcpy(message, arg.c_str());
+			return 1;
+		} 
+	}
+	return 0;
+
+}
+
+long long fb_resort(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) {
+	long ierr = 0;
+	std::string colstr="";
+	ibis::table::stringList slist;
+	ibis::partList plist;
+	std::string dir(args->args[0],args->lengths[0]);
+	char *str;
+	for(int i=1;i<args->arg_count;++i) {
+		if(colstr!="") colstr += ",";
+		colstr += std::string(args->args[i], args->lengths[i]);
+	}
+
+	if(args->arg_count > 1) {
+		str = ibis::util::strnewdup(colstr.c_str());
+		ibis::table::parseNames(str, slist);
+        } 
+
+	ibis::util::gatherParts(plist, dir.c_str());
+        uint32_t nr = 0;
+	for (ibis::partList::iterator it = plist.begin(); it != plist.end(); ++ it) {
+            const char* ddir = (*it)->currentDataDir();
+            {
+                ibis::part tbl(ddir, static_cast<const char*>(0));
+                if (args->arg_count > 1) {
+                    ierr = tbl.reorder(slist);
+                } else {
+                    ierr = tbl.reorder();
+                }
+                nr = tbl.nRows();
+            }
+        }
+	if(args->arg_count > 1) {
+		delete[] str;
+	}
+	return nr;
+}
+
+void fb_resort(UDF_INIT *initid) { 
+
+}
+
+
 
 my_bool fb_create_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
 	if(args->arg_count != 2) {
@@ -197,6 +287,10 @@ long long fb_insert(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error
 		}
 		s->ta->setPartitionMax(100000000);
 		
+	} else if(s->outdir != outdir) {
+		s->ta->write(s->outdir.c_str(), "", "", ""); 
+		s->ta->clearData();
+		s->outdir = outdir;
 	} 
 		
 	ierr = s->ta->appendRow(insert.c_str(), del.c_str());
@@ -239,8 +333,11 @@ long long fb_insert2(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *erro
 	}
 	FBISTATEPTR s = (FBISTATEPTR)initid->ptr;
 	long long ierr;
+	std::string outdir;
+	outdir.assign(args->args[0], args->lengths[0]);
+
 	if (s->outdir == "") {
-		s->outdir.assign(args->args[0],args->lengths[0]);
+		s->outdir = outdir;
 		std::string metadatafile(s->outdir + "/udf_colspec.txt");
 		s->outdir += "/inserts";
 
@@ -252,6 +349,10 @@ long long fb_insert2(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *erro
 		}
 		s->ta->setPartitionMax(100000000);
 		
+	} else if(s->outdir != outdir) {
+		s->ta->write(s->outdir.c_str(), "", "", ""); 
+		s->ta->clearData();
+		s->outdir = outdir;
 	} 
 		
 	std::string insert = "";
@@ -376,8 +477,8 @@ long long fb_load(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) 
 		return 0;
 	}
 	/* Handle arguments */
-        std::string outdir(args->args[0]);
-	std::string csv_path(args->args[1]);
+        std::string outdir(args->args[0],args->lengths[0]);
+	std::string csv_path(args->args[1],args->lengths[1]);
 
 	/* Use custom delimiter?  If not the default is comma "," */
 	std::string del = ",";
@@ -387,7 +488,7 @@ long long fb_load(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error) 
 
 	/* How many maximum rows in a partition? */
 	long long pmax = 100000000;
-	if(args->arg_count > 2) {
+	if(args->arg_count > 3) {
 		pmax =  *(long long*)args->args[3];
 	}
 
@@ -426,7 +527,7 @@ void fb_load_deinit(UDF_INIT *initid) {
 }
 
 my_bool fb_query_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
-	if(args->arg_count < 2) {
+	if(args->arg_count < 3) {
 		strcpy(message, "Takes args: index_path, output_path, fastbit_select"); 
 		return 1;
 	}
