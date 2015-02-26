@@ -35,16 +35,17 @@ mysql -uroot -e "select fb_create('/var/lib/fastbit/table','c1:int')"
 There are two routines that make working with FastBit tables easier.  There is a stored procedure that stores results in a table and optionally returns the result set, and there is a function that creaes an IN list from a FastBit resultset, for constructing lookup queries from FastBit results.
 
 ## fb_helper
-### Run a query, store the results in a table.  Optionally return the results and drop the table.
+### Run a query, store the results in a table
 
-This function runs fastbit queries and stores the results in a table, optionally returning a resultset and optionally dropping the table (only useful if you return a resultset).
+This function runs fastbit queries and stores the results in a table. It can (optionally) return the contents of the table that was inserted into. Finally, the routine can drop the temporary table, which is useful if you have returned a resultset and no longer need the temporary table for further processing.
 
 * usage: fb_helper(table_path varchar, into_schema varchar, into_table varchar, query text, return_result bool, drop_result bool)
-* returns: when result_result=1, a resultset is produced, otherwise nothing is returned
+* returns: If result_result=1, a resultset is produced, otherwise nothing is returned.
 
 **Note:** This function automatically creates and removes intermediate files in @@tmpdir (usually /tmp)
 
 ```
+-- variables used here are just to show what each parameter is:
 mysql> call fb_helper(
 @index := '/tmp/fbtest', 
 @schema:='test',
@@ -168,6 +169,11 @@ a table to store the results in (or use fb_helper())
 +-------------------------------------------------------------------------------------+
 Query OK, 0 rows affected (0.00 sec)
 ```
+**Note**: 
+* A from clause is neither required nor allowed.  
+* All queries except COUNT(*) queries **must** use a WHERE clause
+* GROUP BY is automatic
+* See further restrictions at the end of this document
 
 ### The results are stored in the output file
 **cat /tmp/out.txt**
