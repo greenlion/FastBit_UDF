@@ -1,20 +1,20 @@
 # FastBit_UDF
 MySQL UDF for creating, manipulating and querying FastBit indexes
 
-##About these UDF Functions
+##About these UDF Functions and FastBit
 FastBit is a data store which implements WAH (word aligned hybrid) bitmap indexes.  These UDF create, modify and query FastBit tables.  The UDF treats a single directory on the filesystem as one FastBit table.  Inside of the FastBit table/directory are directories representing partitions.  The partitions are created automatically when data is loaded.
-**All functions take as the first argument the table path/directory **.
 
-**All columns of a fastbit table are automatically bitmapped indexed**
-FastBit WAH bitmap indexes are optimal for multi-dimensional range scans, unlike b-tree indexes which are optimal only for one-dimensional queries.  This means that FastBit can very efficiently handle queries that MySQL can not, like ```select c1 from table where c2 between 1 and 20 or c3 between 1 and 90 or c4 in (1,2,3)```
+**All functions take as the first argument the table path/directory**
+
+###All columns of a fastbit table are automatically bitmapped indexed
+FastBit WAH bitmap indexes are optimal for multi-dimensional range scans, unlike b-tree indexes which are optimal only for one-dimensional queries.  This means that FastBit can very efficiently handle queries that MySQL can not, like ```select c1 from table where c2 between 1 and 20 or c3 between 1 and 90 or c4 in (1,2,3)```.  MySQL can not answer that query using a b-tree index and will resort to a full table scan.
 
 **Note**: that these UDF use default binning and encoding for the bitmap index.  You can use the ibis tool from fastbit (look in the bin/ directory after building the UDF) to change the binning/encoding for an index.
 
 **Note**: you should not use the ibis tool to modify data while using the table at the same time from inside of MySQL.
 
-MySQL can not answer that query using a b-tree index and will resort to a full table scan.
 
-###Fastbit data directory 
+###Fastbit data directory requirements
 * OK: /path/to/writable/directory 
 * NOT OK: ., .., "", any path not beginning with /
 
@@ -30,8 +30,6 @@ mysql -uroot -e "select fb_create('/var/lib/fastbit/table','c1:int')"
 +----------------------------------------------+
 ```
 
-###For more information about FastBit, see the FastBit site which includes information about using the Fastbit library
-* https://sdm.lbl.gov/fastbit/
 
 #Stored Routines / Functions
 There are two routines that make working with FastBit tables easier.  There is a stored procedure that stores results in a table and optionally returns the result set, and there is a function that creaes an IN list from a FastBit resultset, for constructing lookup queries from FastBit results.
@@ -346,3 +344,7 @@ Query OK, 0 rows affected (0.00 sec)
 /// therefore 'count(*)' in the second example may be smaller than that
 /// of the first example.
 ```
+
+#Links
+* Bitmap indexes  : http://en.wikipedia.org/wiki/Bitmap_index
+* FastBit homepage: https://sdm.lbl.gov/fastbit/
