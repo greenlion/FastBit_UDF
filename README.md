@@ -188,10 +188,10 @@ mysql> select fb_insert2('/tmp/fbtest3', c2, c3), count(*) from fbdata group by 
 ## fb_resort
 ### Re-sort a table for better compression (sort on LOW cardinality columns first!)
 
-WARNING: <font color="red">You MUST NOT use this function on a table with string columns.</font>
+WARNING: You **MUST NOT** use this function on a table with **string** columns. Your data **WILL BE CORRUPTED**
 
-usage: fb_resort(index_path, [col1],...,[colN]) (omit all columns to sort on lowest cardinality column first)
-returns: negative on failure
+* usage: fb_resort(index_path, [col1],...,[colN]) (omit all columns to sort on lowest cardinality column first)
+* returns: negative on failure
 
 ```
 +----------------------------+
@@ -208,8 +208,8 @@ Level 0 won't record anything to MySQL server error log while level 10 will fill
 Use this function if there is something wrong with the UDF or results and you want me
 to debug it.
 
-usage: fb_debug(debug_level)
-returns: debug level
+* usage: fb_debug(debug_level)
+* returns: debug level
 
 ```
 +-------------+
