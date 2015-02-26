@@ -205,14 +205,6 @@ Query OK, 0 rows affected (0.00 sec)
 The FastBit UDF won't overwrite files, so you have to unlink files you create 
 You also don't want to waste disk space on a bunch of intermediate files you don't need
 
-**Note**: For safety purposes this tool will only remove files that end in **.fcsv** 
-by default.  If you want to be able to unlink any files from the filesystem,
-change 
-#define SAFE_UNLINK 1
-to
-#define SAFE_UNLINK 0
-in fb_udf.h
-
 ```
 +---------------------------+
 | fb_unlink("/tmp/out.txt") |
@@ -221,6 +213,12 @@ in fb_udf.h
 +---------------------------+
 Query OK, 0 rows affected (0.00 sec)
 ```
+
+**Note**: For safety purposes this tool will only remove files that end in **.fcsv** 
+by default.  If you want to be able to unlink any files from the filesystem in fb_udf.h change 
+```#define SAFE_UNLINK 1```
+to
+```#define SAFE_UNLINK 0```
 
 ## fb_delete
 ### Delete rows
