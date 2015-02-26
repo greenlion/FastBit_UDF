@@ -30,7 +30,6 @@ mysql -uroot -e "select fb_create('/var/lib/fastbit/table','c1:int')"
 +----------------------------------------------+
 ```
 
-
 #Stored Routines / Functions
 There are two routines that make working with FastBit tables easier.  There is a stored procedure that stores results in a table and optionally returns the result set, and there is a function that creaes an IN list from a FastBit resultset, for constructing lookup queries from FastBit results.
 
@@ -199,18 +198,18 @@ Query OK, 0 rows affected (0.00 sec)
 ## fb_unlink
 ### Unlink files (be careful!)
 
-* usage: fb_unlink(file_path)
+* usage: fb_unlink(file_path varchar)
 * returns: 0 on success, negative on error
 
 The FastBit UDF won't overwrite files, so you have to unlink files you create 
 You also don't want to waste disk space on a bunch of intermediate files you don't need
 
 ```
-+---------------------------+
-| fb_unlink("/tmp/out.txt") |
-+---------------------------+
-|                         0 |
-+---------------------------+
++--------------------------+
+| fb_unlink("/tmp/t.fcsv") |
++--------------------------+
+|                        0 |
++--------------------------+
 Query OK, 0 rows affected (0.00 sec)
 ```
 
@@ -225,7 +224,7 @@ to
 
 Deletes rows (and zaps them) from the table
 
-* usage: fb_delete(table_path, where_conditions)
+* usage: fb_delete(table_path varchar, where_conditions varchar)
 * returns: Number of rows deleted on success, negative on failure
 
 ```
@@ -244,7 +243,7 @@ Inserts a delimited row into the database.  Delimter may consist of more than on
 
 **Note**: that strings don't have to be quoted by it doesn't hurt to quote them with single quotes.
 
-* usage: fb_insert(table_path, delimted_string)
+* usage: fb_insert(table_path varchar, delimted_string varchar)
 * returns: 1 on success, negative on failure
 
 ```
@@ -261,7 +260,7 @@ Query OK, 0 rows affected (0.0 sec)
 
 This function does not take a delimited input string, but instead, each argument (except the first, which is the table location) specifies a column value.  
 
-* usage: fb_insert2(table_path, col1, ..., colN)
+* usage: fb_insert2(table_path varchar, col1, ..., colN)
 * returns: The function returns 1 on success for each row inserted. On error it returns NULL, or in cases of initialization failure) a negative number.
 
 In testing, the  insert functions are 20% faster than exporting data to a flat file, and then importing it with fb_load.  The speedup is mostly due to reduced IO as no intermediary file must be written.  If you already have your data in a text file, use fb_load for best results.
@@ -281,7 +280,7 @@ Query OK, 0 rows affected (23.01 sec)
 
 **WARNING**: You MUST NOT use this function on a table with **string** columns. Your data WILL BE CORRUPTED
 
-* usage: fb_resort(table_path, [col1],...,[colN]) (omit all columns to sort on lowest cardinality column first)
+* usage: fb_resort(table_path varchar, [col1] varchar,... varchar,[colN] varchar) (omit all columns to sort on lowest cardinality column first)
 * returns: negative on failure
 
 ```
@@ -300,7 +299,7 @@ Level 0 won't record anything to MySQL server error log while level 10 will fill
 Use this function if there is something wrong with the UDF and you want me
 to debug it.
 
-* usage: fb_debug(debug_level)
+* usage: fb_debug(debug_level int)
 * returns: debug level
 
 ```
