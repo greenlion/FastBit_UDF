@@ -67,11 +67,21 @@ ERROR 1146 (42S02): Table 'test.temp' doesn't exist
 
 ## fb_inlist
 ### Run a query and return the projected column as an IN list 
+
+This function is useful for creating a FastBit table for use as in index.  From MySQL SELECT the columns you want to filter on, along with the primary key from the table into a FastBit table (see fb_insert2 below).  Then use FastBit to query the filter columns, returning the primary key.  Then use an IN query to utilize the primary key:
+
+* usage: fb_inlist(table_path varchar, query text)
+* returns: Results of the query transformed as an IN list.  The keyword IN is not provided.
+
+```
+
+-- Construct a SQL statement with an IN clause to lookup rows in a MySQL table from FastBit table
 mysql> set @v_sql := CONCAT('select * from fastbit.fbdata where c1 IN ', 
-->                          fastbit.fb_inlist('/tmp/fbtest','select c3 where c2>0')
+->                          fastbit.fb_inlist('/tmp/fbtest','select c1 where c2>0')
 ->);
 Query OK, 0 rows affected (0.00 sec)
 
+-- We can see the SQL which was contructed
 mysql> select @v_sql;
 +-------------------------------------------------+
 | @v_sql                                          |
@@ -80,10 +90,12 @@ mysql> select @v_sql;
 +-------------------------------------------------+
 1 row in set (0.00 sec)
 
+-- Parse the query
 mysql> PREPARE stmt FROM @v_sql;
 Query OK, 0 rows affected (0.00 sec)
 Statement prepared
 
+-- Run the query
 mysql> EXECUTE stmt;
 +----+------+------+--------------+--------------------------------------------------------------------------------------------------+
 | c1 | c2   | c3   | v1           | extra_data                                                                                       |
@@ -93,6 +105,7 @@ mysql> EXECUTE stmt;
 +----+------+------+--------------+--------------------------------------------------------------------------------------------------+
 2 rows in set (0.00 sec)
 
+-- deinitialize
 mysql> DEALLOCATE PREPARE stmt;
 Query OK, 0 rows affected (0.00 sec)
 ```
