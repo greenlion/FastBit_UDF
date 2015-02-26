@@ -73,4 +73,7 @@ extern "C" {
 	my_bool fb_debug_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
 	long long fb_debug(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
 	void fb_debug_deinit(UDF_INIT *initid);
+	my_bool fb_file_get_contents_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	char* fb_file_get_contents(UDF_INIT *initid, UDF_ARGS *args,char *result, long long *length, char *is_null, char *error);
+	void fb_file_get_contents_deinit(UDF_INIT *initid);
 }

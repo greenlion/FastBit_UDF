@@ -6,6 +6,7 @@
  */
 #include "fb_udf.h"
 #include <plugin.h>
+#include <fstream>
 
 typedef struct fbudf_insert_state_t {
   std::string outdir="";
@@ -53,6 +54,82 @@ long long fb_debug(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error)
 
 void fb_debug_deinit(UDF_INIT *initid) { 
 
+}
+
+my_bool fb_file_get_contents_init(UDF_INIT *initid, UDF_ARGS *args, char* message) {
+	if(args->arg_type[0] != STRING_RESULT || (args->arg_count > 1 && args->arg_type[1] != STRING_RESULT) || args->arg_count > 2) {
+		strcpy(message,"Takes args: filename,treat_as_inserts=false");
+		return 1;
+	}
+	initid->ptr = NULL;
+	return 0;
+}
+
+char* fb_file_get_contents(UDF_INIT *initid, UDF_ARGS *args, char *result, long long *length, char *is_null, char *error) {
+	if(has_null(args)) { 
+		*is_null = 1;
+		return 0;
+	}
+
+	std::string filename(args->args[0], args->lengths[0]);
+        long long sz;
+	if((sz = ibis::util::getFileSize(filename.c_str())) <= 0) {
+		LOGGER(ibis::gVerbose > 0) << "fb_get_file_contents got error trying to read: " << filename;
+		*is_null = 1;
+		return result;
+	}
+	bool inserts = 0;
+        if(args->arg_count > 1) {
+		inserts = 1;
+	}
+
+	std::fstream is;
+	is.open(filename, std::fstream::in);
+	char c;
+	bool instring = 0;
+	std::string message;
+	message = inserts ? "INSERT INTO " + std::string(args->args[1],args->lengths[1]) + " VALUES (" : "";
+	long long sz2=0;
+	while(is.get(c)) {
+		if (c == '\'') { 
+			instring = !instring;
+			message += c;
+		} else if (instring && c == '\n') {
+			message += "\\n";
+		} else if(inserts) { 
+			if(!instring) {
+				if (c == '\n' && sz2 < sz) {
+					message += "),(";
+				} else if (c == '\n' && sz2 == sz) {
+					message += ")";
+				} else {
+					message += c;
+				}
+			} else  {
+				message += c;
+			}
+		} else { 
+			message += c;
+		}
+		++sz2;
+	}
+	is.close();
+
+	initid->ptr = (char*)malloc(message.length());	
+	memset(initid->ptr,0,message.length());
+	*length = message.length();
+	if(inserts) *length -= 2; // remove trailing ,(
+	strncpy(initid->ptr, message.c_str(), *length);
+
+
+	return initid->ptr;
+	
+}
+
+void fb_file_get_contents_deinit(UDF_INIT *initid) { 
+	if(initid->ptr != NULL) {
+		free(initid->ptr);
+	}
 }
 
 
@@ -603,7 +680,7 @@ char* fb_query(UDF_INIT *initid, UDF_ARGS *args, char *result, long long *length
 	}
 
         if(message.length() > MAXSTR) {
-		initid->ptr = (char*)malloc(*length);	
+		initid->ptr = (char*)malloc(message.length());	
 		*length = message.length();
 		memcpy(initid->ptr, message.c_str(), *length);
 		return initid->ptr;
