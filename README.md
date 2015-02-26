@@ -5,6 +5,15 @@ MySQL UDF for creating, manipulating and querying FastBit indexes
 FastBit is a data store which implements WAH (word aligned hybrid) bitmap indexes.  These UDF create, modify and query FastBit tables.  The UDF treats a single directory on the filesystem as one FastBit table.  Inside of the FastBit table/directory are directories representing partitions.  The partitions are created automatically when data is loaded.
 **All functions take as the first argument the table path/directory **.
 
+**All columns of a fastbit table are automatically bitmapped indexed**
+FastBit WAH bitmap indexes are optimal for multi-dimensional range scans, unlike b-tree indexes which are optimal only for one-dimensional queries.  This means that FastBit can very efficiently handle queries that MySQL can not, like ```select c1 from table where c2 between 1 and 20 or c3 between 1 and 90 or c4 in (1,2,3)```
+
+**Note**: that these UDF use default binning and encoding for the bitmap index.  You can use the ibis tool from fastbit (look in the bin/ directory after building the UDF) to change the binning/encoding for an index.
+
+**Note**: you should not use the ibis tool to modify data while using the table at the same time from inside of MySQL.
+
+MySQL can not answer that query using a b-tree index and will resort to a full table scan.
+
 ###Fastbit data directory 
 * OK: /path/to/writable/directory 
 * NOT OK: ., .., "", any path not beginning with /
@@ -151,7 +160,7 @@ Query OK, 0 rows affected (4.02 sec)
 
 Query the table and store the results in a CSV file
 
-Note that a list of column names and data types is returned so you can create 
+**Note**: that a list of column names and data types is returned so you can create 
 a table to store the results in (or use fb_helper())
 ```
 +-------------------------------------------------------------------------------------+
@@ -216,7 +225,9 @@ Query OK, 0 rows affected (0.4 sec)
 ## fb_insert
 ### Insert a row
 
-Inserts a delimited row into the database.  Delimter may consist of more than one character, and each is used as a delimiter.  Multi-character delimiters are not supported.  The default delimter is comma (,).  Note that strings don't have to be quoted by it doesn't hurt to quote them with single quotes.
+Inserts a delimited row into the database.  Delimter may consist of more than one character, and each is used as a delimiter.  Multi-character delimiters are not supported.  The default delimter is comma (,). 
+
+**Note**: that strings don't have to be quoted by it doesn't hurt to quote them with single quotes.
 
 * usage: fb_insert(table_path, delimted_string)
 * returns: 1 on success, negative on failure
@@ -253,7 +264,7 @@ Query OK, 0 rows affected (23.01 sec)
 ## fb_resort
 ### Re-sort a table for better compression (sort on LOW cardinality columns first!)
 
-WARNING: You **MUST NOT** use this function on a table with **string** columns. Your data **WILL BE CORRUPTED**
+**WARNING**: You MUST NOT use this function on a table with **string** columns. Your data WILL BE CORRUPTED
 
 * usage: fb_resort(table_path, [col1],...,[colN]) (omit all columns to sort on lowest cardinality column first)
 * returns: negative on failure
@@ -271,7 +282,7 @@ Query OK, 0 rows affected (0.41 sec)
 ### Set the ibis::gVerbose level.  
 
 Level 0 won't record anything to MySQL server error log while level 10 will fill it. 
-Use this function if there is something wrong with the UDF or results and you want me
+Use this function if there is something wrong with the UDF and you want me
 to debug it.
 
 * usage: fb_debug(debug_level)
