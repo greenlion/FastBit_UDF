@@ -3,6 +3,7 @@ create database if not exists fastbit;;
 use fastbit;;
 drop procedure if exists fb_throw;;
 drop procedure if exists fb_helper;;
+drop function if exists fb_inlist;;
 
 create procedure fb_throw(v_err text) 
 begin
@@ -14,9 +15,13 @@ begin
 end;;
 
 create procedure fb_helper(v_index varchar(1024), v_schema varchar(64), v_table varchar(64), v_query text, v_return boolean, v_drop boolean)
-begin
+proc:begin
   -- where does it go?
   set @table := CONCAT('`',v_schema,'`.`',v_table,'`');
+  if(v_index is null or @table is null or v_query is null or v_return is null or v_drop is null) then
+    select 'all arguments are NOT NULL' as errormessage;
+    leave proc;
+  end if;
 
   -- create a temporary name for the resultset on disk (intermediary file)
   set @file := concat(@@tmpdir, '/', md5(rand()), '.fcsv');
@@ -72,6 +77,34 @@ begin
 
   end if;
 
+end;;
+
+create function fb_inlist(v_index varchar(1024), v_query text) 
+returns longtext
+READS SQL DATA
+begin
+  if(v_index is null or v_query is null) then
+    return null;
+  end if;
+  set @file := concat(@@tmpdir, '/', md5(rand()), '.fcsv');
+  set @err := fb_query(v_index, @file, v_query);
+  if @err < 0 then
+    return null;
+  end if;
+
+  -- get resultset as insert statements 
+  set @inlist := fb_file_get_contents(@file, "::inlist"); 
+  if @inlist is null then
+    call fb_throw("Could not get contents of intermediary file");
+  end if;
+
+  -- intermediary file is no longer needed
+  set @err := fb_unlink(@file); 
+  if @err != 0 then
+    call fb_throw(concat('Error unlinking file: ', @err));
+  end if;
+
+  return @inlist;
 end;;
   
 delimiter ;

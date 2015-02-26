@@ -120,20 +120,32 @@ char* fb_file_get_contents(UDF_INIT *initid, UDF_ARGS *args, char *result, long 
 		*is_null = 1;
 		return result;
 	}
-	bool inserts = 0;
+	char inserts = 0;
+	std::string tname = "";
         if(args->arg_count > 1) {
-		inserts = 1;
+		inserts = 2; 
+		tname.assign(args->args[1], args->lengths[1]);
+		// an inlist is conceptually similar to inserts but there 
+		// is no INSERT ... and end of line in the input is replaced with , instead of ),(
+		// of course, the source of data for an  inlist transformation 
+		// should consist of a single column to work as expected
+		if(tname == "::inlist") inserts=1;
 	}
 
 	std::fstream is;
 	is.open(filename, std::fstream::in);
 	char c;
 	bool instring = 0;
-	std::string message;
-	message = inserts ? "INSERT INTO " + std::string(args->args[1],args->lengths[1]) + " VALUES (" : "";
+	std::string message = "";
+	if(inserts == 2) {
+		message = "INSERT INTO " + tname + " VALUES (";
+	} else if (inserts == 1) {
+		message = "(";
+	} 
 	long long sz2=0;
-	while(is.get(c)) {
-		if (c == '\'') { 
+	while(is.get(c) && ++sz2) {
+		// ibis::tablex::dump() uses double quotes to enclose strings
+		if (c == '"') {  
 			instring = !instring;
 			message += c;
 		} else if (instring && c == '\n') {
@@ -141,7 +153,11 @@ char* fb_file_get_contents(UDF_INIT *initid, UDF_ARGS *args, char *result, long 
 		} else if(inserts) { 
 			if(!instring) {
 				if (c == '\n' && sz2 < sz) {
-					message += "),(";
+					if (inserts == 2) {
+						message += "),(";
+					} else {
+						message += ",";
+					}
 				} else if (c == '\n' && sz2 == sz) {
 					message += ")";
 				} else {
@@ -153,16 +169,13 @@ char* fb_file_get_contents(UDF_INIT *initid, UDF_ARGS *args, char *result, long 
 		} else { 
 			message += c;
 		}
-		++sz2;
 	}
 	is.close();
 
 	initid->ptr = (char*)malloc(message.length());	
 	memset(initid->ptr,0,message.length());
 	*length = message.length();
-	if(inserts) *length -= 2; // remove trailing ,(
 	strncpy(initid->ptr, message.c_str(), *length);
-
 
 	return initid->ptr;
 	
