@@ -192,9 +192,15 @@ long long fb_unlink(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error
 		*is_null = 1;
 		return 0;
 	}
+	std::string file(args->args[0], args->lengths[0]);
+	if(SAFE_UNLINK) {
+		std::string ext = file.substr(file.length()-5,file.length());
+		if(ext != ".fcsv") {
+			return -2;
+		}
+	}
 	int err;
 	long long retval = 0;
-	std::string file(args->args[0], args->lengths[0]);
 
 	// The specified directory already exists
 	if(!file_exists(file.c_str())) {

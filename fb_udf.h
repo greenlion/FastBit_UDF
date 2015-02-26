@@ -17,6 +17,10 @@
 #define MAXSTR 766
 #endif
 
+// set this to one if you want fb_unlink to only ulink files that end in .fcsv
+#define SAFE_UNLINK 1
+
+
 int file_exists (const char * file_name);
 
 static long long processSelect(const char* uid, const char* qstr,
@@ -84,4 +88,7 @@ extern "C" {
 	my_bool fb_file_get_contents_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
 	char* fb_file_get_contents(UDF_INIT *initid, UDF_ARGS *args,char *result, long long *length, char *is_null, char *error);
 	void fb_file_get_contents_deinit(UDF_INIT *initid);
+	my_bool fb_drop_init(UDF_INIT *initid, UDF_ARGS *args, char* message);
+	long long fb_drop(UDF_INIT *initid, UDF_ARGS *args, char *is_null, char *error);
+	void fb_drop_deinit(UDF_INIT *initid);
 }

@@ -19,7 +19,7 @@ begin
   set @table := CONCAT('`',v_schema,'`.`',v_table,'`');
 
   -- create a temporary name for the resultset on disk (intermediary file)
-  set @file := concat(@@tmpdir, '/', md5(rand()), '.txt');
+  set @file := concat(@@tmpdir, '/', md5(rand()), '.fcsv');
 
   -- run the FastBit_UDF query
   set @err := fb_query(v_index, @file, v_query);

@@ -5,9 +5,9 @@ sudo make install && \
 sudo rm -rf /tmp/fbtest && \
 sudo service mysqld start && \
 mysql -u root < install.sql
-if [ -f /tmp/out.txt ] 
+if [ -f /tmp/out.fcsv ] 
 then
-  sudo rm /tmp/out.txt 
+  sudo rm /tmp/out.fcsv 
 fi;
 if [ -d /tmp/fbtest ]
 then
@@ -18,19 +18,19 @@ mysql -u root -e 'select fb_create("/tmp/fbtest","c2:int,c3:int")' && \
 echo "-- Loading index"
 mysql -u root -e 'select fb_load("/tmp/fbtest","/tmp/fbdata.txt")' && \
 echo "-- Count rows"
-mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.txt","select count(*)")' && \
-sudo cat /tmp/out.txt && \
+mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.fcsv","select count(*)")' && \
+sudo cat /tmp/out.fcsv && \
 echo "-- Test unlink" && \
-mysql -u root -e 'select fb_unlink("/tmp/out.txt")' && \
+mysql -u root -e 'select fb_unlink("/tmp/out.fcsv")' && \
 echo "-- Delete rows" && \
 mysql -u root -e 'select fb_delete("/tmp/fbtest", "c2 >= 0")' && \
 echo "-- Insert row" && \
 mysql -u root -e "select fb_insert('/tmp/fbtest', '1|1','|')" && \
 echo "-- Count rows (should be one)" && \
-mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.txt","select count(*)")' && \
-sudo cat /tmp/out.txt  && \
+mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.fcsv","select count(*)")' && \
+sudo cat /tmp/out.fcsv  && \
 mysql -u root -e 'select fb_insert2("/tmp/fbtest",10,20)' && \
-sudo rm /tmp/out.txt && \
-mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.txt","select c2,c3 where c2>0")' && \
-sudo cat /tmp/out.txt && \
-sudo rm /tmp/out.txt
+sudo rm /tmp/out.fcsv && \
+mysql -u root -e 'select fb_query("/tmp/fbtest","/tmp/out.fcsv","select c2,c3 where c2>0")' && \
+sudo cat /tmp/out.fcsv && \
+sudo rm /tmp/out.fcsv
