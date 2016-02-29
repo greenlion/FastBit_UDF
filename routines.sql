@@ -4,6 +4,9 @@ use fastbit;;
 drop procedure if exists fb_throw;;
 drop procedure if exists fb_helper;;
 drop function if exists fb_inlist;;
+drop procedure if exists `select`;;
+drop procedure if exists `create`;;
+drop procedure if exists `bulk_insert`;;
 
 create procedure fb_throw(v_err text) 
 begin
@@ -14,13 +17,53 @@ begin
     message_text     = v_err;
 end;;
 
-create procedure fb_helper(v_index varchar(1024), v_schema varchar(64), v_table varchar(64), v_query text, v_return boolean, v_drop boolean)
+create procedure `select`(v_index varchar(1024), v_query longtext)
+begin
+  if(trim(substr(v_query,1,6) != 'select')) then
+    set v_query = concat('select ', v_query);
+  end if;
+
+  if(@fbdir IS NOT NULL) THEN
+    set v_index = CONCAT(@fbdir,'/',v_index);
+  end if;
+
+  call fb_helper(v_index, 'fastbit', concat('rs#', rand()), v_query, 1, 1);
+end;;
+
+create procedure `create`(v_index varchar(1024), v_colspec longtext)
+begin
+  if(@fbdir IS NOT NULL) THEN
+    set v_index = CONCAT(@fbdir,'/',v_index);
+  end if;
+
+  select fb_create(v_index, v_colspec);
+end;;
+
+create procedure `bulk_insert`(v_index varchar(1024), v_table text, v_colspec longtext)
+begin
+  if(@fbdir IS NOT NULL) THEN
+    set v_index = CONCAT(@fbdir,'/',v_index);
+  end if;
+
+  SET @v_sql := CONCAT('select fb_insert2("', v_index,'","', v_colspec,'") as status, count(*) as `count`  FROM ', v_table, ' GROUP BY 1'); 
+
+  PREPARE stmt from @v_sql;
+  EXECUTE stmt;
+  DEALLOCATE PREPARE stmt;
+
+end;;
+
+create procedure fb_helper(v_index varchar(1024), v_schema varchar(64), v_table varchar(64), v_query longtext, v_return boolean, v_drop boolean)
 proc:begin
   -- where does it go?
   set @table := CONCAT('`',v_schema,'`.`',v_table,'`');
   if(v_index is null or @table is null or v_query is null or v_return is null or v_drop is null) then
     select 'all arguments are NOT NULL' as errormessage;
     leave proc;
+  end if;
+
+  if(@fbdir IS NOT NULL) THEN
+    set v_index = CONCAT(@fbdir,'/',v_index);
   end if;
 
   -- create a temporary name for the resultset on disk (intermediary file)
@@ -85,6 +128,9 @@ READS SQL DATA
 begin
   if(v_index is null or v_query is null) then
     return null;
+  end if;
+  if(@fbdir IS NOT NULL) THEN
+    set v_index = CONCAT(@fbdir,'/',v_index);
   end if;
   set @file := concat(@@tmpdir, '/', md5(rand()), '.fcsv');
   set @err := fb_query(v_index, @file, v_query);
