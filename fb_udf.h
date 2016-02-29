@@ -8,6 +8,8 @@
 #include <memory>	// std::unique_ptr
 #include <iomanip>	// std::setprecision
 
+#define MYSQL_ABI_CHECK
+
 #include <plugin.h>
 #include <fstream>
 #include <ftw.h>
