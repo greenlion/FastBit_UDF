@@ -33,8 +33,30 @@ mysql -uroot -e "select fb_create('/var/lib/fastbit/table','c1:int')"
 #Stored Routines / Functions
 There are two routines that make working with FastBit tables easier.  There is a stored procedure that stores results in a table and optionally returns the result set, and there is a function that creaes an IN list from a FastBit resultset, for constructing lookup queries from FastBit results.
 
+## fastbit.select
+### Run a query and return the resultset 
+
+This function runs the given query against the given fastbit index and returns the resultset.  It is just a simple convenience wrapper around fb_helper.
+
+* usage: call fastbit.select(table_path varchar, query longtext)
+* returns: If result_result=1, a resultset is produced, otherwise nothing is returned.
+
+**Note:** This function automatically creates and removes intermediate files in @@tmpdir (usually /tmp)
+
+```
+mysql> call fastbit.select('/var/lib/fastbit/lo_idx','select count(*)');
++----------+
+| count(*) |
++----------+
+| 19526340 |
++----------+
+1 row in set (0.01 sec)
+
+Query OK, 0 rows affected (0.01 sec)
+```
+
 ## fb_helper
-### Run a query, store the results in a table
+### Run a query, store the results in a table and optionally project results
 
 This function runs fastbit queries and stores the results in a table. It can (optionally) return the contents of the table that was inserted into. Finally, the routine can drop the temporary table, which is useful if you have returned a resultset and no longer need the temporary table for further processing.
 
